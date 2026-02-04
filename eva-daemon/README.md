@@ -1,10 +1,10 @@
-# 🧠 EVA Daemon - AI Voice Assistant for Redox OS
+# 🧠 EVA OS - AI Voice-Controlled Operating System
 
 [![Rust](https://img.shields.io/badge/rust-nightly-orange.svg)](https://www.rust-lang.org/)
 [![License: MIT](https://img.shields.io/badge/License-MIT-blue.svg)](./LICENSE)
 [![Redox OS](https://img.shields.io/badge/Redox%20OS-Compatible-red.svg)](https://www.redox-os.org/)
 
-Native voice AI integration for Redox OS using Google Gemini 2.5 Flash with real-time audio streaming.
+**EVA OS** - The world's first voice-controlled operating system. Built on Redox OS with Google Gemini AI integration for complete hands-free computer operation.
 
 ## ✨ Features
 
@@ -186,11 +186,11 @@ This project is licensed under the MIT License - see the [LICENSE](LICENSE) file
 
 - **Author:** Jose R F Junior
 - **GitHub:** [@JoseRFJuniorLLMs](https://github.com/JoseRFJuniorLLMs)
-- **Project:** [eva-daemon](https://github.com/JoseRFJuniorLLMs/eva-daemon)
+- **Project:** [EVA OS](https://github.com/JoseRFJuniorLLMs/EVA-OS)
 
 ## 🔗 Related Projects
 
-- [EVA Mind Backend](https://github.com/JoseRFJuniorLLMs/EVA-Mind-FZPN) - Go backend for EVA
+- [EVA Mind Backend](https://github.com/JoseRFJuniorLLMs/EVA-Mind-FZPN) - Go backend for EVA OS
 - [Redox OS](https://gitlab.redox-os.org/redox-os/redox) - The operating system
 
 ---
