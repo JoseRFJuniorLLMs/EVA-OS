@@ -6,6 +6,8 @@ mod wake_word;
 mod vad;
 mod audio_player;
 mod session;
+mod command_parser;
+mod command_executor;
 
 use audio::AudioDevice;
 use wake_word::WakeWordDetector;
@@ -13,36 +15,46 @@ use vad::VAD;
 use gemini::{GeminiClient, GeminiConfig};
 use audio_player::AudioPlayer;
 use session::{ConversationSession, Role};
+use command_parser::CommandParser;
+use command_executor::CommandExecutor;
 
 #[tokio::main]
 async fn main() -> Result<(), Box<dyn std::error::Error>> {
-    println!("🧠 EVA OS v0.5.0 - Full Conversation Loop");
+    println!("🧠 EVA OS v0.6.0 - System Command Integration");
     println!("━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━");
 
     // Initialize components
-    println!("\n[1/6] Initializing audio device...");
+    println!("\n[1/8] Initializing audio device...");
     let mut audio = AudioDevice::new()?;
     println!("✅ Audio device ready");
 
-    println!("\n[2/6] Initializing wake word detector...");
+    println!("\n[2/8] Initializing wake word detector...");
     let mut wake_word = WakeWordDetector::new();
     wake_word.set_sensitivity(0.6);
     println!("✅ Wake word detector ready (sensitivity: 0.6)");
 
-    println!("\n[3/6] Initializing Voice Activity Detection...");
+    println!("\n[3/8] Initializing Voice Activity Detection...");
     let mut vad = VAD::new();
     println!("✅ VAD ready");
 
-    println!("\n[4/6] Initializing audio player...");
+    println!("\n[4/8] Initializing audio player...");
     let audio_device_clone = AudioDevice::new()?;
     let mut audio_player = AudioPlayer::new(audio_device_clone)?;
     println!("✅ Audio player ready");
 
-    println!("\n[5/6] Initializing conversation session...");
+    println!("\n[5/8] Initializing conversation session...");
     let mut session = ConversationSession::new();
     println!("✅ Session ready (ID: {})", session.session_id());
 
-    println!("\n[6/6] Connecting to Gemini API...");
+    println!("\n[6/8] Initializing command parser...");
+    let command_parser = CommandParser::new();
+    println!("✅ Command parser ready");
+
+    println!("\n[7/8] Initializing command executor...");
+    let mut command_executor = CommandExecutor::new()?;
+    println!("✅ Command executor ready (sandbox enabled)");
+
+    println!("\n[8/8] Connecting to Gemini API...");
     let config = GeminiConfig::default();
     
     if config.api_key.is_empty() {
@@ -160,7 +172,37 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
                                     
                                     // Add to session
                                     if !response_text.is_empty() {
-                                        session.add_turn(Role::Assistant, response_text);
+                                        session.add_turn(Role::Assistant, response_text.clone());
+                                        
+                                        // Parse for commands
+                                        if let Ok(intent) = command_parser.parse(&response_text) {
+                                            use command_parser::CommandIntent;
+                                            
+                                            match intent {
+                                                CommandIntent::Unknown => {
+                                                    // Just conversation, no command
+                                                }
+                                                _ => {
+                                                    // Execute command
+                                                    println!("⚙️  Executing command...");
+                                                    
+                                                    match command_executor.execute(intent).await {
+                                                        Ok(result) => {
+                                                            println!("✅ {}", result);
+                                                            
+                                                            // Add result to session
+                                                            session.add_turn(
+                                                                Role::Assistant,
+                                                                format!("Command result: {}", result)
+                                                            );
+                                                        }
+                                                        Err(e) => {
+                                                            println!("❌ Error: {}", e);
+                                                        }
+                                                    }
+                                                }
+                                            }
+                                        }
                                     }
                                 }
                             }
