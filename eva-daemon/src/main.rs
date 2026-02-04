@@ -8,6 +8,10 @@ mod audio_player;
 mod session;
 mod command_parser;
 mod command_executor;
+mod user_profile;
+mod custom_commands;
+mod macros;
+mod emotion;
 
 use audio::AudioDevice;
 use wake_word::WakeWordDetector;
@@ -17,44 +21,64 @@ use audio_player::AudioPlayer;
 use session::{ConversationSession, Role};
 use command_parser::CommandParser;
 use command_executor::CommandExecutor;
+use user_profile::UserProfile;
+use custom_commands::CustomCommandManager;
+use macros::MacroManager;
+use emotion::EmotionDetector;
 
 #[tokio::main]
 async fn main() -> Result<(), Box<dyn std::error::Error>> {
-    println!("🧠 EVA OS v0.6.0 - System Command Integration");
+    println!("🧠 EVA OS v0.7.0 - Advanced Voice Features");
     println!("━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━");
 
     // Initialize components
-    println!("\n[1/8] Initializing audio device...");
+    println!("\n[1/12] Initializing audio device...");
     let mut audio = AudioDevice::new()?;
     println!("✅ Audio device ready");
 
-    println!("\n[2/8] Initializing wake word detector...");
+    println!("\n[2/12] Initializing wake word detector...");
     let mut wake_word = WakeWordDetector::new();
     wake_word.set_sensitivity(0.6);
     println!("✅ Wake word detector ready (sensitivity: 0.6)");
 
-    println!("\n[3/8] Initializing Voice Activity Detection...");
+    println!("\n[3/12] Initializing Voice Activity Detection...");
     let mut vad = VAD::new();
     println!("✅ VAD ready");
 
-    println!("\n[4/8] Initializing audio player...");
+    println!("\n[4/12] Initializing audio player...");
     let audio_device_clone = AudioDevice::new()?;
     let mut audio_player = AudioPlayer::new(audio_device_clone)?;
     println!("✅ Audio player ready");
 
-    println!("\n[5/8] Initializing conversation session...");
+    println!("\n[5/12] Initializing conversation session...");
     let mut session = ConversationSession::new();
     println!("✅ Session ready (ID: {})", session.session_id());
 
-    println!("\n[6/8] Initializing command parser...");
+    println!("\n[6/12] Initializing command parser...");
     let command_parser = CommandParser::new();
     println!("✅ Command parser ready");
 
-    println!("\n[7/8] Initializing command executor...");
+    println!("\n[7/12] Initializing command executor...");
     let mut command_executor = CommandExecutor::new()?;
     println!("✅ Command executor ready (sandbox enabled)");
 
-    println!("\n[8/8] Connecting to Gemini API...");
+    println!("\n[8/12] Loading user profile...");
+    let _profile = UserProfile::load()?;
+    println!("✅ User profile loaded (User: {}, Language: {})", _profile.name, _profile.language);
+
+    println!("\n[9/12] Initializing custom commands...");
+    let mut _custom_commands = CustomCommandManager::new()?;
+    println!("✅ Custom commands ready ({} commands)", _custom_commands.count());
+
+    println!("\n[10/12] Initializing macros...");
+    let mut _macros = MacroManager::new()?;
+    println!("✅ Macros ready ({} macros)", _macros.count());
+
+    println!("\n[11/12] Initializing emotion detection...");
+    let _emotion_detector = EmotionDetector::new();
+    println!("✅ Emotion detection ready");
+
+    println!("\n[12/12] Connecting to Gemini API...");
     let config = GeminiConfig::default();
     
     if config.api_key.is_empty() {
