@@ -3,6 +3,11 @@ use std::time::{SystemTime, UNIX_EPOCH};
 use serde::{Serialize, Deserialize};
 use std::fs;
 use std::path::Path;
+use aes_gcm::{
+    aead::{Aead, AeadCore, KeyInit, OsRng},
+    Aes256Gcm, Nonce,
+};
+use argon2::{Argon2, password_hash::SaltString};
 
 /// Role in conversation
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
@@ -87,24 +92,127 @@ impl ConversationSession {
         format!("session_{}", duration.as_secs())
     }
 
-    /// Save session to file
+    /// Save session to file (encrypted)
+    ///
+    /// Uses AES-256-GCM encryption with a key derived from machine-specific data.
+    /// Falls back to plaintext if encryption fails (with warning).
     pub fn save_to_file<P: AsRef<Path>>(&self, path: P) -> std::io::Result<()> {
-        let json = serde_json::to_string_pretty(self)?;
-        fs::write(path, json)?;
+        let json = serde_json::to_string(self)?;
+
+        // Try to encrypt
+        match Self::encrypt_data(json.as_bytes()) {
+            Ok(encrypted) => {
+                // Save with .enc extension marker (first 4 bytes)
+                let mut data = b"ENC1".to_vec(); // Magic bytes + version
+                data.extend(encrypted);
+                fs::write(path, data)?;
+            }
+            Err(e) => {
+                eprintln!("[Session] Warning: Encryption failed ({}), saving plaintext", e);
+                fs::write(path, json)?;
+            }
+        }
+
         Ok(())
     }
 
-    /// Load session from file
+    /// Load session from file (handles both encrypted and plaintext)
     pub fn load_from_file<P: AsRef<Path>>(path: P) -> std::io::Result<Self> {
-        let content = fs::read_to_string(path)?;
-        let mut session: Self = serde_json::from_str(&content)?;
-        
-        // Ensure max_history is set (in case it wasn't in the file or we change defaults)
+        let content = fs::read(&path)?;
+
+        let json_str = if content.starts_with(b"ENC1") {
+            // Encrypted file
+            match Self::decrypt_data(&content[4..]) {
+                Ok(decrypted) => String::from_utf8(decrypted)
+                    .map_err(|e| std::io::Error::new(std::io::ErrorKind::InvalidData, e))?,
+                Err(e) => {
+                    return Err(std::io::Error::new(
+                        std::io::ErrorKind::InvalidData,
+                        format!("Decryption failed: {}", e),
+                    ));
+                }
+            }
+        } else {
+            // Plaintext file (legacy or failed encryption)
+            String::from_utf8(content)
+                .map_err(|e| std::io::Error::new(std::io::ErrorKind::InvalidData, e))?
+        };
+
+        let mut session: Self = serde_json::from_str(&json_str)?;
+
+        // Ensure max_history is set
         if session.max_history == 0 {
             session.max_history = 10;
         }
-        
+
         Ok(session)
+    }
+
+    /// Derive encryption key from machine-specific data
+    fn get_session_key() -> Result<[u8; 32], Box<dyn std::error::Error + Send + Sync>> {
+        let username = std::env::var("USERNAME")
+            .or_else(|_| std::env::var("USER"))
+            .unwrap_or_else(|_| "eva_user".to_string());
+
+        let hostname = hostname::get()
+            .map(|h| h.to_string_lossy().to_string())
+            .unwrap_or_else(|_| "eva_host".to_string());
+
+        let password = format!("eva_session_{}_{}", username, hostname);
+
+        // Use a fixed salt for deterministic key derivation
+        // In production, this should be stored securely
+        let salt = SaltString::from_b64("RXZhT1NTYWx0MTIzNA")
+            .map_err(|e| format!("Salt error: {}", e))?;
+
+        let argon2 = Argon2::default();
+        let hash = argon2
+            .hash_password(password.as_bytes(), &salt)
+            .map_err(|e| format!("Hash error: {}", e))?;
+
+        let hash_bytes = hash.hash.ok_or("No hash generated")?;
+        let mut key = [0u8; 32];
+        let len = std::cmp::min(hash_bytes.len(), 32);
+        key[..len].copy_from_slice(&hash_bytes.as_bytes()[..len]);
+
+        Ok(key)
+    }
+
+    /// Encrypt data using AES-256-GCM
+    fn encrypt_data(data: &[u8]) -> Result<Vec<u8>, Box<dyn std::error::Error + Send + Sync>> {
+        let key = Self::get_session_key()?;
+        let cipher = Aes256Gcm::new(&key.into());
+        let nonce = Aes256Gcm::generate_nonce(&mut OsRng);
+
+        let ciphertext = cipher
+            .encrypt(&nonce, data)
+            .map_err(|e| format!("Encryption error: {}", e))?;
+
+        // Prepend nonce to ciphertext
+        let mut result = nonce.to_vec();
+        result.extend(ciphertext);
+
+        Ok(result)
+    }
+
+    /// Decrypt data using AES-256-GCM
+    fn decrypt_data(data: &[u8]) -> Result<Vec<u8>, Box<dyn std::error::Error + Send + Sync>> {
+        if data.len() < 12 {
+            return Err("Data too short for decryption".into());
+        }
+
+        let key = Self::get_session_key()?;
+        let cipher = Aes256Gcm::new(&key.into());
+
+        // Extract nonce (first 12 bytes)
+        let nonce = Nonce::from_slice(&data[..12]);
+        let ciphertext = &data[12..];
+
+        let plaintext = cipher
+            .decrypt(nonce, ciphertext)
+            .map_err(|e| format!("Decryption error: {}", e))?;
+
+        Ok(plaintext)
     }
 
     /// Add a turn to the conversation

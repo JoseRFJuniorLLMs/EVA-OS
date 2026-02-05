@@ -21,26 +21,34 @@ pub struct TimeMachine {
 }
 
 impl TimeMachine {
+    /// Create a new TimeMachine instance
+    ///
+    /// # Security
+    /// Encryption key is obtained from (in order of priority):
+    /// 1. EVA_TIMEMACHINE_KEY environment variable
+    /// 2. Machine-specific derived key (fallback for development)
     pub async fn new() -> Result<Self, Box<dyn std::error::Error>> {
         println!("[TimeMachine] Initializing...");
-        
+
         // 1. Initialize NPU
         let npu = npu_delegate::NPUDelegate::new()?;
-        
+
         // 2. Load Models
         let ocr = ocr::OCREngine::new(&npu).await?;
         let embeddings = embeddings::EmbeddingEngine::new(&npu).await?;
-        
+
         // 3. Setup Storage (Encrypted)
         let mut storage = storage::Storage::new("~/.eva/timemachine").await?;
-        // In production, ask user for password/key. For now, hardcoded dev key.
-        storage.set_encryption_key("development_key_123")?; 
-        
+
+        // Get encryption key securely
+        let encryption_key = Self::get_encryption_key()?;
+        storage.set_encryption_key(&encryption_key)?;
+
         // 4. Setup Index
         let index = Arc::new(RwLock::new(index::SemanticIndex::new()?));
-        
+
         let capture = capture::ScreenCapture::new();
-        
+
         Ok(Self {
             capture,
             ocr,
@@ -49,6 +57,35 @@ impl TimeMachine {
             storage,
             npu,
         })
+    }
+
+    /// Get encryption key from environment or derive from machine-specific data
+    fn get_encryption_key() -> Result<String, Box<dyn std::error::Error>> {
+        // Priority 1: Environment variable (for production/user-set key)
+        if let Ok(key) = std::env::var("EVA_TIMEMACHINE_KEY") {
+            if key.len() >= 16 {
+                println!("[TimeMachine] Using encryption key from environment");
+                return Ok(key);
+            } else {
+                eprintln!("[TimeMachine] Warning: EVA_TIMEMACHINE_KEY too short (min 16 chars), using fallback");
+            }
+        }
+
+        // Priority 2: Derive from machine-specific data (username + hostname)
+        // This is NOT secure for production but prevents hardcoded keys
+        let username = std::env::var("USERNAME")
+            .or_else(|_| std::env::var("USER"))
+            .unwrap_or_else(|_| "eva_user".to_string());
+
+        let hostname = hostname::get()
+            .map(|h| h.to_string_lossy().to_string())
+            .unwrap_or_else(|_| "eva_host".to_string());
+
+        let derived_key = format!("eva_tm_{}_{}_secret", username, hostname);
+
+        println!("[TimeMachine] Warning: Using machine-derived key. Set EVA_TIMEMACHINE_KEY for production!");
+
+        Ok(derived_key)
     }
     
     pub async fn start_recording(&self) {

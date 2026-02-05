@@ -21,7 +21,8 @@ serde_json = "1.0"
 base64 = "0.21"
 regex = "1.10"
 sysinfo = "0.29"
-ort = { version = "2.0", features = ["cuda", "directml"] }
+# Fixed: ort 2.0 is prerelease, use stable 1.16 or pinned RC
+ort = { version = "1.16", optional = true }
 image = "0.25"
 screenshots = "0.4"
 rusqlite = { version = "0.32", features = ["bundled"] }
@@ -29,6 +30,13 @@ chrono = { version = "0.4", features = ["serde"] }
 aes-gcm = "0.10"
 argon2 = "0.5"
 flate2 = "1.0"
+# Added for machine-specific key derivation
+hostname = "0.3"
+
+[features]
+default = []
+timemachine = ["ort"]
+sysinfo = []
 
 [target.'cfg(target_os = "redox")'.dependencies]
 redox_syscall = "0.5"

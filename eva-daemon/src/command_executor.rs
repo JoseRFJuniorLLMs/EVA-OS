@@ -48,19 +48,72 @@ impl CommandExecutor {
     }
 
     /// Validate and resolve path within sandbox
+    ///
+    /// # Security
+    /// This function prevents path traversal attacks by:
+    /// 1. Removing dangerous characters and sequences
+    /// 2. Resolving to canonical path (follows symlinks)
+    /// 3. Verifying final path is within sandbox
     fn validate_path(&self, path: &str) -> Result<PathBuf, Box<dyn std::error::Error>> {
-        // Remove any path traversal attempts
-        let clean_path = path.replace("..", "").replace("~", "");
-        
-        // Build full path
-        let full_path = self.sandbox_dir.join(&clean_path);
-        
-        // Ensure it's within sandbox
-        if !full_path.starts_with(&self.sandbox_dir) {
-            return Err("Path outside sandbox not allowed".into());
+        // 1. Remove dangerous characters and sequences
+        let mut clean_path = path.to_string();
+
+        // Remove path traversal attempts (multiple passes for nested attacks)
+        for _ in 0..5 {
+            let before = clean_path.clone();
+            clean_path = clean_path
+                .replace("..", "")
+                .replace("~", "")
+                .replace("//", "/")
+                .replace("\\\\", "\\")
+                .replace("\0", ""); // Null byte injection
+
+            if clean_path == before {
+                break;
+            }
         }
-        
-        Ok(full_path)
+
+        // Remove leading slashes/backslashes (absolute path attempts)
+        let clean_path = clean_path.trim_start_matches(['/', '\\']);
+
+        // 2. Build full path within sandbox
+        let full_path = self.sandbox_dir.join(clean_path);
+
+        // 3. Get canonical sandbox path
+        let sandbox_canonical = self.sandbox_dir.canonicalize()
+            .unwrap_or_else(|_| self.sandbox_dir.clone());
+
+        // 4. Try to canonicalize the target path
+        // If file doesn't exist yet, check parent directory
+        let target_canonical = if full_path.exists() {
+            full_path.canonicalize()?
+        } else {
+            // For new files, verify parent is in sandbox
+            let parent = full_path.parent()
+                .ok_or("Invalid path: no parent directory")?;
+
+            if !parent.exists() {
+                // Create parent directories within sandbox
+                fs::create_dir_all(parent)?;
+            }
+
+            let parent_canonical = parent.canonicalize()?;
+
+            // Verify parent is in sandbox
+            if !parent_canonical.starts_with(&sandbox_canonical) {
+                return Err("Path traversal detected: parent outside sandbox".into());
+            }
+
+            // Return the non-canonical path for new files
+            full_path
+        };
+
+        // 5. Final verification: ensure path is within sandbox
+        if target_canonical.exists() && !target_canonical.starts_with(&sandbox_canonical) {
+            return Err("Path traversal detected: resolved path outside sandbox".into());
+        }
+
+        Ok(target_canonical)
     }
 
     /// Execute file operation
@@ -396,16 +449,38 @@ mod tests {
     #[test]
     fn test_path_validation() {
         let executor = CommandExecutor::new().unwrap();
-        
+
         // Valid path
         assert!(executor.validate_path("test.txt").is_ok());
-        
-        // Path traversal attempt
-        let result = executor.validate_path("../etc/passwd");
-        assert!(result.is_ok()); // Should be sanitized
-        
-        let safe_path = result.unwrap();
-        assert!(safe_path.starts_with(&executor.sandbox_dir));
+
+        // Path traversal attempts - all should be sanitized to stay in sandbox
+        let test_cases = vec![
+            "../etc/passwd",
+            "..\\..\\windows\\system32",
+            "....//etc/passwd",      // Nested traversal
+            "/etc/passwd",           // Absolute path
+            "~/.bashrc",             // Home directory
+            "foo/../../../etc/passwd", // Mixed traversal
+            "test\0.txt",            // Null byte injection
+        ];
+
+        for path in test_cases {
+            let result = executor.validate_path(path);
+            // Should either succeed (sanitized) or fail (blocked)
+            if let Ok(safe_path) = result {
+                // If it succeeds, must be within sandbox
+                let sandbox_canonical = executor.sandbox_dir.canonicalize()
+                    .unwrap_or_else(|_| executor.sandbox_dir.clone());
+                assert!(
+                    safe_path.starts_with(&executor.sandbox_dir) ||
+                    safe_path.starts_with(&sandbox_canonical),
+                    "Path {} escaped sandbox to {:?}",
+                    path,
+                    safe_path
+                );
+            }
+            // If it fails, that's also acceptable (blocked attack)
+        }
     }
 
     #[tokio::test]

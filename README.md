@@ -14,6 +14,8 @@
 
 ## 🚀 What is EVA OS?
 
+![EVA OS](img/paper.jpg)
+
 **EVA OS** is a next-generation operating system built on **Redox OS** (Rust microkernel), designed from the ground up for **voice interaction** and **AI integration**. 
 
 Unlike traditional OSs that bolt AI on top, EVA OS puts AI at the kernel level of user interaction, acting as a "living" shell that understands natural language, manages your system, and enables a "Time Machine" memory of your digital life—all whilst respecting your privacy through strict **Local-First** processing.
