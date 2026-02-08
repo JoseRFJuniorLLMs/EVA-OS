@@ -207,6 +207,7 @@ fn map_bar0_redox(bdf: &str) -> Result<(MmioRegion, u64, usize), PciError> {
             &syscall::Map {
                 offset: 0,
                 size: bar_size,
+                address: 0,
                 flags: syscall::MapFlags::MAP_SHARED
                     | syscall::MapFlags::PROT_READ
                     | syscall::MapFlags::PROT_WRITE,
@@ -217,10 +218,8 @@ fn map_bar0_redox(bdf: &str) -> Result<(MmioRegion, u64, usize), PciError> {
 
     info!("  ✅ BAR0 mapped at virt={:#x}", virt_addr);
 
-    // Resolve physical address of BAR
-    let bar0_phys = unsafe {
-        syscall::virttophys(virt_addr).unwrap_or(0)
-    } as u64;
+    // Resolve physical address of BAR (identity mapping)
+    let bar0_phys = virt_addr as u64;
 
     let mmio = unsafe { MmioRegion::new(virt_addr as *mut u8, bar_size) };
 

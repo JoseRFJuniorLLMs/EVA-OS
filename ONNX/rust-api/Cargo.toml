@@ -1,0 +1,12 @@
+[package]
+name = "rodox-npu"
+version = "0.1.0"
+edition = "2021"
+authors = ["EVA-OS Team"]
+description = "High-level Rust API for running ONNX models on Rodox NPU"
+license = "MIT"
+
+[dependencies]
+anyhow = "1.0"
+
+[dev-dependencies]

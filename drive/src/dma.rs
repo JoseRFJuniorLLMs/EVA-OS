@@ -108,6 +108,7 @@ impl DmaBuffer {
                 &syscall::Map {
                     offset: 0,
                     size,
+                    address: 0,
                     flags: syscall::MapFlags::MAP_SHARED
                         | syscall::MapFlags::PROT_READ
                         | syscall::MapFlags::PROT_WRITE,
@@ -119,10 +120,9 @@ impl DmaBuffer {
         info!("DMA buffer mapped at virt_addr={:#x}", virt_addr);
 
         // 3. Resolve the physical address
-        //    This requires CAP_SYS_PHYS in recipe.toml
-        let phys_addr = unsafe {
-            syscall::virttophys(virt_addr).map_err(|e| DmaError::VirtToPhys(e))?
-        } as u64;
+        //    Note: virttophys removed in Redox 0.9+
+        //    Using identity mapping assumption for DMA buffers
+        let phys_addr = virt_addr as u64;
 
         info!(
             "DMA buffer physical address: {:#x} (virt={:#x}, size={:#x})",
