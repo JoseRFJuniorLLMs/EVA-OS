@@ -1,6 +1,6 @@
 # Googolplex-Books x NPU - Status dos Modelos e Integracao
-**Data:** 2026-02-08
-**Fonte:** REDOX-OS, EVA-OS, Googolplex-Books, D:/MODELOS
+**Data:** 2026-02-08 (atualizado 20:48)
+**Fonte:** EVA-OS, Googolplex-Books, D:/MODELOS
 
 ---
 
@@ -8,9 +8,9 @@
 
 | Modelo | Tamanho | Formato | Status | Uso |
 |--------|---------|---------|--------|-----|
-| Qwen2.5-32B-Instruct | 58 GB | PyTorch (HuggingFace) | DOWNLOAD INCOMPLETO (8 blobs .incomplete) | Traducao principal |
-| Qwen2.5-7B-Instruct | 12 GB | PyTorch (HuggingFace) | DOWNLOAD em andamento (lock ativo) | Fallback leve |
-| Qwen2.5-Coder-32B-Instruct | 55 GB | PyTorch (HuggingFace) | Completo (sem lock) | Nao usado no Googolplex |
+| Qwen2.5-32B-Instruct | ~60 GB (19GB baixado) | SafeTensors (HuggingFace) | DOWNLOAD INCOMPLETO (6 blobs .incomplete, lock ativo) | Traducao principal |
+| Qwen2.5-7B-Instruct | 12 GB | SafeTensors (HuggingFace) | DOWNLOAD em andamento (lock ativo) | Fallback leve |
+| Qwen2.5-Coder-32B-Instruct | 55 GB | SafeTensors (HuggingFace) | Completo (sem lock) | Nao usado no Googolplex |
 | SDXL Base 1.0 | 14 GB | Diffusion | Completo | Nao usado no Googolplex |
 | qwen2.5-32b-instruct-onnx | 0 bytes | ONNX | VAZIO - NAO CONVERTIDO | Target NPU |
 | qwen2.5-coder-32b-instruct-onnx | 0 bytes | ONNX | VAZIO - NAO CONVERTIDO | - |
@@ -120,7 +120,7 @@ npu_plugin_destroy()    // Cleanup
 | Hardware NPU | OK | Intel AI Boost 48 TOPS detectado |
 | Driver OpenVINO | OK | 2025.4.1 instalado, NPU reconhecida |
 | Plugin standalone | OK | Compilado (24KB DLL) |
-| Download Qwen2.5-32B | INCOMPLETO | 8 blobs .incomplete |
+| Download Qwen2.5-32B | INCOMPLETO | 6 blobs .incomplete (~19GB/60GB) |
 | Conversao ONNX | NAO FEITA | Script existe mas nunca rodou |
 | Pasta ONNX target | VAZIA | d:/modelos/qwen2.5-32b-instruct-onnx = 0 bytes |
 | translator_npu.py | CONFIGURADO | Aponta para pasta vazia |
@@ -183,8 +183,8 @@ Enquanto Qwen2.5-32B nao esta convertido, existe um modelo ONNX pronto:
 ```
 MODELOS PRONTOS PARA NPU:     1 (Phi-3-Mini - teste apenas)
 MODELOS EM CONVERSAO:          0
-MODELOS COM DOWNLOAD COMPLETO: 2 (Coder-32B, SDXL - nao usados no Googolplex)
-MODELOS COM DOWNLOAD PARCIAL:  2 (Qwen-32B, Qwen-7B)
+MODELOS COM DOWNLOAD COMPLETO: 2 (Coder-32B 55GB, SDXL 14GB - nao usados no Googolplex)
+MODELOS COM DOWNLOAD PARCIAL:  2 (Qwen-32B ~19GB/60GB, Qwen-7B em andamento)
 PASTAS ONNX VAZIAS:            4 (todas as targets Qwen)
 
 NPU FUNCIONAL:                 SIM (hardware + driver + plugin OK)
