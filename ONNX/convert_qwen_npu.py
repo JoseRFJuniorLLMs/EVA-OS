@@ -11,28 +11,38 @@ os.environ['HF_HUB_CACHE'] = 'D:/MODELOS'
 os.environ['HF_HUB_DISABLE_SYMLINKS_WARNING'] = '1'
 os.environ['HF_TOKEN'] = os.getenv('HF_TOKEN', 'YOUR_TOKEN_HERE')
 
-print("Converting Qwen2.5-32B for NPU via OpenVINO...")
+print("Converting Qwen2.5-32B for NPU via OpenVINO (INT8 for 32GB RAM)...")
 
-from optimum.intel.openvino import OVModelForCausalLM
+from optimum.intel.openvino import OVModelForCausalLM, OVWeightQuantizationConfig
 from transformers import AutoTokenizer
+import gc
 
 model_id = "Qwen/Qwen2.5-32B-Instruct"
 output_dir = "D:/MODELOS/qwen2.5-32b-openvino"
 
 print(f"Model: {model_id}")
 print(f"Output: {output_dir}")
-print("Loading and converting (this takes a while)...")
+print("Loading with INT8 weight compression (fits 32GB RAM)...")
+
+quantization_config = OVWeightQuantizationConfig(
+    bits=8,
+    sym=True,
+    group_size=128,
+)
 
 model = OVModelForCausalLM.from_pretrained(
     model_id,
     export=True,
-    device="NPU",
     compile=False,
-    cache_dir="D:/MODELOS"
+    cache_dir="D:/MODELOS",
+    quantization_config=quantization_config,
+    low_cpu_mem_usage=True,
 )
 
 print(f"Saving to {output_dir}...")
 model.save_pretrained(output_dir)
+del model
+gc.collect()
 
 tokenizer = AutoTokenizer.from_pretrained(model_id, cache_dir="D:/MODELOS")
 tokenizer.save_pretrained(output_dir)
